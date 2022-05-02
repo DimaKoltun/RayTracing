@@ -61,6 +61,8 @@ public:
 		ImGui::Text("Write: %.3fms", m_writeTime);
 		ImGui::Text("Read: %.3fms", m_readTime);
 
+		ImGui::Checkbox("Random in Hemisphere", &m_randomInHemisphere);
+
 		if (ImGui::Button("Render"))
 		{
 			Render();
@@ -88,11 +90,8 @@ public:
 	{
 		Timer timer;
 
-		if (!m_image || m_imageWidth != m_image->GetWidth() || m_imageHeight != m_image->GetHeight())
-		{
-			renderImageToFile(C_IMAGE_PATH);
-			readImageFromFile(C_IMAGE_PATH);
-		}
+		renderImageToFile(C_IMAGE_PATH);
+		readImageFromFile(C_IMAGE_PATH);
 
 		m_lastRenderTime = timer.ElapsedMillis();
 	}
@@ -197,13 +196,22 @@ private:
 
 		if (m_world.hit(ray, 0.001f, C_INFINITY, hitRecord))
 		{
-			point3 target = hitRecord.m_point + hitRecord.m_normal + Random::InUnitSphere();
+			point3 target = hitRecord.m_point + hitRecord.m_normal + (m_randomInHemisphere ? randomInHemisphere(hitRecord.m_normal) : Random::InUnitSphere());
 			return 0.5f * rayColor(Ray(hitRecord.m_point, target - hitRecord.m_point), depth - 1);
 		}
 
 		vec3 unitDirection = glm::normalize(ray.direction());
 		auto t = 0.5f * (unitDirection.y + 1.f);
 		return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.3f, 0.5f, 1.f);
+	}
+
+	vec3 randomInHemisphere(const vec3& normal)
+	{
+		vec3 inUnitSphere = Random::InUnitSphere();
+		if (glm::dot(inUnitSphere, normal) > 0)
+			return inUnitSphere;
+		else
+			return -inUnitSphere;
 	}
 
 private:
@@ -221,6 +229,8 @@ private:
 
 	//-- camera
 	float m_aspectRatio;
+
+	bool m_randomInHemisphere = false;
 
 	std::shared_ptr<Camera> m_camera;
 
