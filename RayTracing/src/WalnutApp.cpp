@@ -5,7 +5,11 @@
 #include "Walnut/Random.h"
 #include "Walnut/Timer.h"
 
+#include "common.hpp"
 #include "ray.hpp"
+#include "sphere.hpp"
+#include "hittable_list.hpp"
+#include "camera.hpp"
 
 #include <glm/glm.hpp>
 
@@ -14,10 +18,6 @@
 #include <string_view>
 
 using namespace Walnut;
-
-using color = glm::vec3;
-using point3 = glm::vec3;
-using vec3 = glm::vec3;
 
 namespace
 {
@@ -30,32 +30,18 @@ void write_color(std::ostream& out, color pixel_color) {
 		<< static_cast<int>(255.999 * pixel_color.z) << '\n';
 }
 
-bool hitSphere(const point3& center, float radius, const Ray& r)
-{
-	vec3 oc = r.origin() - center;
-	auto a = glm::dot(r.direction(), r.direction());
-	auto b = 2 * glm::dot(r.direction(), oc);
-	auto c = glm::dot(oc, oc) - radius * radius;
-	auto discriminant = b * b - 4 * a * c;
-
-	return discriminant > 0;
-}
-
-vec3 rayColor(const Ray& ray)
-{
-	if (hitSphere(point3(0.f, 0.f, -1.f), 0.5, ray))
-		return color(1.f, 0.f, 0.f);
-
-	vec3 unitDirection = glm::normalize(ray.direction());
-	auto t = 0.5f * (unitDirection.y + 1.f);
-	return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.5f, 0.7f, 1.f); //-- lerp
-}
 }
 
 
 class ExampleLayer : public Walnut::Layer
 {
 public:
+	virtual void OnAttach() override
+	{
+		m_world.add(std::make_shared<Sphere>(point3(0.f, 0.f, -1.f), 0.5f));
+		m_world.add(std::make_shared<Sphere>(point3(0.f, -100.5f, -1.f), 100.f));
+	}
+
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
@@ -78,14 +64,6 @@ public:
 		m_imageWidth = static_cast<uint32_t>(ImGui::GetContentRegionAvail().x);
 		m_imageHeight = static_cast<uint32_t>(ImGui::GetContentRegionAvail().y);
 		m_aspectRatio = (float) m_imageWidth / m_imageHeight;
-		m_viewportHeight = 2.f;
-		m_viewportWidth = m_aspectRatio * m_viewportHeight;
-		m_focalLength = 1.f;
-
-		m_origin = vec3(0.f, 0.f, 0.f);
-		m_horizontal = vec3(m_viewportWidth, 0.f, 0.f);
-		m_vertical = vec3(0.f, m_viewportHeight, 0.f);
-		m_lowerLeftCorner = m_origin - m_horizontal / 2.f - m_vertical / 2.f - vec3(0.f, 0.f, m_focalLength);
 
 		if (m_image)
 			ImGui::Image(m_image->GetDescriptorSet(), { (float)m_image->GetWidth(), (float)m_image->GetHeight()});
@@ -120,6 +98,8 @@ private:
 
 		if (out.is_open())
 		{
+			m_camera = std::make_shared<Camera>(m_aspectRatio);
+
 			const int width = m_imageWidth;
 			const int height = m_imageHeight;
 
@@ -130,13 +110,17 @@ private:
 				std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
 				for (int i = 0; i < width; ++i)
 				{
-					auto u = float(i) / (width - 1); //-- 0 -> 1
-					auto v = float(j) / (height - 1); //-- 0 -> 1
-					
-					Ray r(m_origin, m_lowerLeftCorner + u * m_horizontal + v * m_vertical - m_origin);
-					color pixelColor = rayColor(r);
+					color pixelColor(0.f, 0.f, 0.f);
 
-					write_color(out, pixelColor);
+					for (int s = 0; s < m_samplesPerPixel; s++)
+					{
+						auto u = float(i + fabs(Random::Float())) / (width - 1); //-- 0 -> 1
+						auto v = float(j + fabs(Random::Float())) / (height - 1); //-- 0 -> 1	
+						Ray r = m_camera->getRay(u, v);
+						pixelColor += rayColor(r);
+					}
+					
+					write_color(out, pixelColor * (1.f / m_samplesPerPixel));
 				}
 			}
 
@@ -195,11 +179,27 @@ private:
 		m_readTime = timer.ElapsedMillis();
 	}
 
+	color rayColor(const Ray& ray)
+	{
+		HitRecord hitRecord;
+
+		if (m_world.hit(ray, 0, C_INFINITY, hitRecord))
+		{
+			return 0.5f * (hitRecord.m_normal + color(1.f, 1.f, 1.f));
+		}
+
+		vec3 unitDirection = glm::normalize(ray.direction());
+		auto t = 0.5f * (unitDirection.y + 1.f);
+		return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.5f, 0.7f, 1.f);
+	}
+
 private:
 	std::shared_ptr<Image> m_image;
 	uint32_t* m_imageData = nullptr;
 	uint32_t m_imageWidth = 0;
 	uint32_t m_imageHeight = 0;
+
+	int m_samplesPerPixel = 8;
 
 	float m_writeTime = 0.f;
 	float m_readTime = 0.f;
@@ -214,6 +214,10 @@ private:
 	vec3 m_horizontal;
 	vec3 m_vertical;
 	vec3 m_lowerLeftCorner;
+
+	std::shared_ptr<Camera> m_camera;
+
+	HittableList m_world;
 };
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
