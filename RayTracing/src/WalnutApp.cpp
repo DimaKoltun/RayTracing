@@ -23,22 +23,33 @@ namespace
 {
 constexpr std::string_view C_IMAGE_PATH = "image.ppm";
 
-void write_color(std::ostream& out, color pixel_color) {
-	// Write the translated [0,255] value of each color component.
-	out << static_cast<int>(255.999 * pixel_color.x) << ' '
-		<< static_cast<int>(255.999 * pixel_color.y) << ' '
-		<< static_cast<int>(255.999 * pixel_color.z) << '\n';
+void write_color(std::ostream& out, color pixelColor, int samplesPerPixel) {
+
+	auto r = pixelColor.r;
+	auto g = pixelColor.g;
+	auto b = pixelColor.b;
+
+	auto scale = 1.f / samplesPerPixel;
+
+	r = sqrt(r * scale);
+	g = sqrt(g * scale);
+	b = sqrt(b * scale);
+
+	out << static_cast<int>(255.999 * std::clamp(r, 0.f, 0.999f)) << ' '
+		<< static_cast<int>(255.999 * std::clamp(g, 0.f, 0.999f)) << ' '
+		<< static_cast<int>(255.999 * std::clamp(b, 0.f, 0.999f)) << '\n';
 }
 
 }
-
 
 class ExampleLayer : public Walnut::Layer
 {
 public:
 	virtual void OnAttach() override
 	{
-		m_world.add(std::make_shared<Sphere>(point3(0.f, 0.f, -1.f), 0.5f));
+		m_world.add(std::make_shared<Sphere>(point3(-0.5f, 0.f, -1.f), 0.5f));
+		m_world.add(std::make_shared<Sphere>(point3(0.5f, -0.5f, -1.f), 0.25f));
+		m_world.add(std::make_shared<Sphere>(point3(0.5f, 0.0f, -1.f), 0.25f));
 		m_world.add(std::make_shared<Sphere>(point3(0.f, -100.5f, -1.f), 100.f));
 	}
 
@@ -76,8 +87,6 @@ public:
 	void Render()
 	{
 		Timer timer;
-
-		glm::vec3 v;
 
 		if (!m_image || m_imageWidth != m_image->GetWidth() || m_imageHeight != m_image->GetHeight())
 		{
@@ -117,10 +126,10 @@ private:
 						auto u = float(i + fabs(Random::Float())) / (width - 1); //-- 0 -> 1
 						auto v = float(j + fabs(Random::Float())) / (height - 1); //-- 0 -> 1	
 						Ray r = m_camera->getRay(u, v);
-						pixelColor += rayColor(r);
+						pixelColor += rayColor(r, m_maxDepth);
 					}
 					
-					write_color(out, pixelColor * (1.f / m_samplesPerPixel));
+					write_color(out, pixelColor, m_samplesPerPixel);
 				}
 			}
 
@@ -179,18 +188,22 @@ private:
 		m_readTime = timer.ElapsedMillis();
 	}
 
-	color rayColor(const Ray& ray)
+	color rayColor(const Ray& ray, int depth)
 	{
 		HitRecord hitRecord;
 
-		if (m_world.hit(ray, 0, C_INFINITY, hitRecord))
+		if (depth <= 0)
+			return color(0.f, 0.f, 0.f);
+
+		if (m_world.hit(ray, 0.001f, C_INFINITY, hitRecord))
 		{
-			return 0.5f * (hitRecord.m_normal + color(1.f, 1.f, 1.f));
+			point3 target = hitRecord.m_point + hitRecord.m_normal + Random::InUnitSphere();
+			return 0.5f * rayColor(Ray(hitRecord.m_point, target - hitRecord.m_point), depth - 1);
 		}
 
 		vec3 unitDirection = glm::normalize(ray.direction());
 		auto t = 0.5f * (unitDirection.y + 1.f);
-		return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.5f, 0.7f, 1.f);
+		return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.3f, 0.5f, 1.f);
 	}
 
 private:
@@ -199,7 +212,8 @@ private:
 	uint32_t m_imageWidth = 0;
 	uint32_t m_imageHeight = 0;
 
-	int m_samplesPerPixel = 8;
+	int m_samplesPerPixel = 16;
+	int m_maxDepth = 100;
 
 	float m_writeTime = 0.f;
 	float m_readTime = 0.f;
@@ -207,13 +221,6 @@ private:
 
 	//-- camera
 	float m_aspectRatio;
-	float m_viewportWidth;
-	float m_viewportHeight;
-	float m_focalLength;
-	vec3 m_origin;
-	vec3 m_horizontal;
-	vec3 m_vertical;
-	vec3 m_lowerLeftCorner;
 
 	std::shared_ptr<Camera> m_camera;
 
