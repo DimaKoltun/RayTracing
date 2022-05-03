@@ -5,6 +5,7 @@
 #include "Walnut/Random.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtx/norm.hpp>
 
 #include <cmath>
 #include <limits>
@@ -31,4 +32,19 @@ vec3 randomInHemisphere(const vec3& normal)
 		return inUnitSphere;
 	else
 		return -inUnitSphere;
+}
+
+vec3 randomInUnitDisk()
+{
+	while (true)
+	{
+		float x = 2.f * Walnut::Random::Float() - 1.f;
+		float y = 2.f * Walnut::Random::Float() - 1.f;
+		auto p = vec3(x, y, 0.f);
+
+		if (glm::length2(p) >= 1)
+			continue;
+
+		return p;
+	}
 }

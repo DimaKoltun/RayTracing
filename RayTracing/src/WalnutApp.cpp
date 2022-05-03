@@ -48,15 +48,16 @@ class ExampleLayer : public Walnut::Layer
 public:
 	virtual void OnAttach() override
 	{
-		auto materialGround = std::make_shared<Lambertian>(color(0.8f, 0.8f, 0.f));
-		auto materialCenter = std::make_shared<Lambertian>(color(0.7f, 0.3f, 0.f));
+		auto materialGround = std::make_shared<Lambertian>(color(0.8, 0.8, 0.0));
+		auto materialCenter = std::make_shared<Lambertian>(color(0.1, 0.2, 0.5));
 		auto materialLeft = std::make_shared<Dialectric>(1.5f);
-		auto materialRight = std::make_shared<Metal>(color(0.8f, 0.6f, 0.2f));
+		auto materialRight = std::make_shared<Metal>(color(0.8f, 0.7f, 0.72f));
 
-		m_world.add(std::make_shared<Sphere>(point3( 0.0f, -100.5f, -1.0f),  100.f, materialGround));
-		m_world.add(std::make_shared<Sphere>(point3( 0.0f,	0.0f,	-1.0f),  0.5f,	materialCenter));
-		m_world.add(std::make_shared<Sphere>(point3(-1.0f,	0.0f,	-1.0f),  0.5f,	materialLeft));
-		m_world.add(std::make_shared<Sphere>(point3( 1.0f,	0.0f,	-1.0f),  0.5f,	materialRight));
+		m_world.add(std::make_shared<Sphere>(point3(0.0f, -100.5f, -1.0f), 100.f, materialGround));
+		m_world.add(std::make_shared<Sphere>(point3(0.0f, 0.0f, -1.0f), 0.5f, materialCenter));
+		m_world.add(std::make_shared<Sphere>(point3(-1.0f, 0.0f, -1.0f), 0.5f, materialLeft));
+		m_world.add(std::make_shared<Sphere>(point3(-1.0f, 0.0f, -1.0f), -0.45f, materialLeft));
+		m_world.add(std::make_shared<Sphere>(point3(1.0f, 0.0f, -1.0f), 0.5f, materialRight));
 	}
 
 	virtual void OnUIRender() override
@@ -113,7 +114,13 @@ private:
 
 		if (out.is_open())
 		{
-			m_camera = std::make_shared<Camera>(m_aspectRatio);
+			point3 lookFrom(3.f, 3.f, 2.f);
+			point3 lookAt(0.f, 0.f, -1.f);
+			vec3 vup(0.f, 1.f, 0.f);
+			float distToFocus = glm::length(lookFrom - lookAt);
+			float aperture = 0.2f;
+
+			m_camera = std::make_shared<Camera>(lookFrom, lookAt, vup, 25.f, m_aspectRatio, aperture, distToFocus);
 
 			const int width = m_imageWidth;
 			const int height = m_imageHeight;
