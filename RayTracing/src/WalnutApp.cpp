@@ -50,7 +50,7 @@ public:
 	{
 		auto materialGround = std::make_shared<Lambertian>(color(0.8f, 0.8f, 0.f));
 		auto materialCenter = std::make_shared<Lambertian>(color(0.7f, 0.3f, 0.f));
-		auto materialLeft = std::make_shared<Metal>(color(0.8f, 0.8f, 0.8f));
+		auto materialLeft = std::make_shared<Dialectric>(1.5f);
 		auto materialRight = std::make_shared<Metal>(color(0.8f, 0.6f, 0.2f));
 
 		m_world.add(std::make_shared<Sphere>(point3( 0.0f, -100.5f, -1.0f),  100.f, materialGround));
