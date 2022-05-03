@@ -5,9 +5,10 @@
 class Sphere : public Hittable
 {
 public:
-	Sphere(const point3& center, float radius)
+	Sphere(const point3& center, float radius, std::shared_ptr<Material> materialPtr)
 		: m_center(center)
-		, m_radius(radius) {}
+		, m_radius(radius)
+		, m_materialPtr(materialPtr) {}
 
 	bool hit(const Ray& r, float tMin, float tMax, HitRecord& hitRecord) override
 	{
@@ -37,6 +38,7 @@ public:
 		hitRecord.m_point = r.at(hitRecord.m_t);
 		auto outwardNormal = (hitRecord.m_point - m_center) / m_radius; //-- normalize
 		hitRecord.setFaceNormal(r, outwardNormal);
+		hitRecord.m_materialPtr = m_materialPtr;
 
 		return true;
 	}
@@ -44,4 +46,6 @@ public:
 private:
 	point3 m_center;
 	float m_radius;
+
+	std::shared_ptr<Material> m_materialPtr;
 };

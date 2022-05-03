@@ -5,9 +5,12 @@
 class Ray
 {
 public:
+	Ray() {}
+	
 	Ray(const glm::vec3& origin, const glm::vec3& direction)
 		: m_origin(origin)
 		, m_direction(direction) {}
+
 
 	const glm::vec3& origin() const { return m_origin; }
 	const glm::vec3& direction() const { return m_direction; }

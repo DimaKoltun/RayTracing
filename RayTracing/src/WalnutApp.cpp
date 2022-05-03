@@ -8,6 +8,7 @@
 #include "common.hpp"
 #include "ray.hpp"
 #include "sphere.hpp"
+#include "material.hpp"
 #include "hittable_list.hpp"
 #include "camera.hpp"
 
@@ -47,10 +48,15 @@ class ExampleLayer : public Walnut::Layer
 public:
 	virtual void OnAttach() override
 	{
-		m_world.add(std::make_shared<Sphere>(point3(-0.5f, 0.f, -1.f), 0.5f));
-		m_world.add(std::make_shared<Sphere>(point3(0.5f, -0.5f, -1.f), 0.25f));
-		m_world.add(std::make_shared<Sphere>(point3(0.5f, 0.0f, -1.f), 0.25f));
-		m_world.add(std::make_shared<Sphere>(point3(0.f, -100.5f, -1.f), 100.f));
+		auto materialGround = std::make_shared<Lambertian>(color(0.8f, 0.8f, 0.f));
+		auto materialCenter = std::make_shared<Lambertian>(color(0.7f, 0.3f, 0.f));
+		auto materialLeft = std::make_shared<Metal>(color(0.8f, 0.8f, 0.8f));
+		auto materialRight = std::make_shared<Metal>(color(0.8f, 0.6f, 0.2f));
+
+		m_world.add(std::make_shared<Sphere>(point3( 0.0f, -100.5f, -1.0f),  100.f, materialGround));
+		m_world.add(std::make_shared<Sphere>(point3( 0.0f,	0.0f,	-1.0f),  0.5f,	materialCenter));
+		m_world.add(std::make_shared<Sphere>(point3(-1.0f,	0.0f,	-1.0f),  0.5f,	materialLeft));
+		m_world.add(std::make_shared<Sphere>(point3( 1.0f,	0.0f,	-1.0f),  0.5f,	materialRight));
 	}
 
 	virtual void OnUIRender() override
@@ -62,6 +68,7 @@ public:
 		ImGui::Text("Read: %.3fms", m_readTime);
 
 		ImGui::Checkbox("Random in Hemisphere", &m_randomInHemisphere);
+		ImGui::SliderFloat("Fuzzy", &FUZZY, 0.f, 1.f);
 
 		if (ImGui::Button("Render"))
 		{
@@ -196,22 +203,20 @@ private:
 
 		if (m_world.hit(ray, 0.001f, C_INFINITY, hitRecord))
 		{
-			point3 target = hitRecord.m_point + hitRecord.m_normal + (m_randomInHemisphere ? randomInHemisphere(hitRecord.m_normal) : Random::InUnitSphere());
-			return 0.5f * rayColor(Ray(hitRecord.m_point, target - hitRecord.m_point), depth - 1);
+			Ray scattered;
+			color attenuation;
+			
+			if (hitRecord.m_materialPtr->scatter(ray, hitRecord, attenuation, scattered, m_randomInHemisphere))
+			{
+				return attenuation * rayColor(scattered, depth - 1);
+			}
+
+			return color(0.f, 0.f, 0.f);
 		}
 
 		vec3 unitDirection = glm::normalize(ray.direction());
 		auto t = 0.5f * (unitDirection.y + 1.f);
 		return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.3f, 0.5f, 1.f);
-	}
-
-	vec3 randomInHemisphere(const vec3& normal)
-	{
-		vec3 inUnitSphere = Random::InUnitSphere();
-		if (glm::dot(inUnitSphere, normal) > 0)
-			return inUnitSphere;
-		else
-			return -inUnitSphere;
 	}
 
 private:

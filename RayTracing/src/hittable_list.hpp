@@ -15,6 +15,7 @@ public:
 
 	void add(HittablePtr object) { m_objects.push_back(object); }
 	void clear() { m_objects.clear(); }
+	auto& objects() { return m_objects; }
 
 	bool hit(const Ray& r, float tMin, float tMax, HitRecord& hitRecord) override
 	{

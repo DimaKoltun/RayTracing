@@ -3,12 +3,16 @@
 #include "common.hpp"
 #include "ray.hpp"
 
+class Material;
+
 struct HitRecord
 {
 	point3 m_point;
 	vec3 m_normal;
 	float m_t;
 	bool m_frontFace;
+
+	std::shared_ptr<Material> m_materialPtr;
 
 	void setFaceNormal(const Ray& r, const vec3& outwardNormal)
 	{
