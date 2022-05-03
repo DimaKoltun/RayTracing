@@ -48,16 +48,7 @@ class ExampleLayer : public Walnut::Layer
 public:
 	virtual void OnAttach() override
 	{
-		auto materialGround = std::make_shared<Lambertian>(color(0.8, 0.8, 0.0));
-		auto materialCenter = std::make_shared<Lambertian>(color(0.1, 0.2, 0.5));
-		auto materialLeft = std::make_shared<Dialectric>(1.5f);
-		auto materialRight = std::make_shared<Metal>(color(0.8f, 0.7f, 0.72f));
-
-		m_world.add(std::make_shared<Sphere>(point3(0.0f, -100.5f, -1.0f), 100.f, materialGround));
-		m_world.add(std::make_shared<Sphere>(point3(0.0f, 0.0f, -1.0f), 0.5f, materialCenter));
-		m_world.add(std::make_shared<Sphere>(point3(-1.0f, 0.0f, -1.0f), 0.5f, materialLeft));
-		m_world.add(std::make_shared<Sphere>(point3(-1.0f, 0.0f, -1.0f), -0.45f, materialLeft));
-		m_world.add(std::make_shared<Sphere>(point3(1.0f, 0.0f, -1.0f), 0.5f, materialRight));
+		generateRandomScene();
 	}
 
 	virtual void OnUIRender() override
@@ -69,7 +60,6 @@ public:
 		ImGui::Text("Read: %.3fms", m_readTime);
 
 		ImGui::Checkbox("Random in Hemisphere", &m_randomInHemisphere);
-		ImGui::SliderFloat("Fuzzy", &FUZZY, 0.f, 1.f);
 
 		if (ImGui::Button("Render"))
 		{
@@ -114,13 +104,7 @@ private:
 
 		if (out.is_open())
 		{
-			point3 lookFrom(3.f, 3.f, 2.f);
-			point3 lookAt(0.f, 0.f, -1.f);
-			vec3 vup(0.f, 1.f, 0.f);
-			float distToFocus = glm::length(lookFrom - lookAt);
-			float aperture = 0.2f;
-
-			m_camera = std::make_shared<Camera>(lookFrom, lookAt, vup, 25.f, m_aspectRatio, aperture, distToFocus);
+			initCamera();
 
 			const int width = m_imageWidth;
 			const int height = m_imageHeight;
@@ -225,6 +209,65 @@ private:
 		auto t = 0.5f * (unitDirection.y + 1.f);
 		return (1.f - t) * color(1.f, 1.f, 1.f) + t * color(0.3f, 0.5f, 1.f);
 	}
+	
+	void generateRandomScene()
+	{
+		auto groundMaterial = std::make_shared<Lambertian>(color(0.5f, 0.5f, 0.5f));
+		m_world.add(std::make_shared<Sphere>(vec3(0.f, -1000.f, 0.f), 1000.f, groundMaterial));
+
+		for (int a = -11; a < 11; a++)
+		{
+			for (int b = -11; b < 11; b++)
+			{
+				auto chooseMat = Random::Float();
+				point3 center(a + 0.9f * Random::Float(), 0.2f, b + 0.9f * Random::Float());
+
+				if (glm::length(center - point3(4.f, 0.2f, 0.f)) > 0.9f)
+				{
+					std::shared_ptr<Material> sphereMaterial;
+
+					if (chooseMat < 0.8f)
+					{
+						auto albedo = Random::Vec3() * Random::Vec3();
+						sphereMaterial = std::make_shared<Lambertian>(albedo);
+						m_world.add(std::make_shared<Sphere>(center, 0.2f, sphereMaterial));
+					}
+					else if (chooseMat < 0.95f)
+					{
+						auto albedo = Random::Vec3(0.5f, 1.f);
+						auto fuzz = Random::Float() / 2.f;
+						sphereMaterial = std::make_shared<Metal>(albedo, fuzz);
+						m_world.add(std::make_shared<Sphere>(center, 0.2f, sphereMaterial));
+					}
+					else
+					{
+						sphereMaterial = std::make_shared<Dialectric>(1.5f);
+						m_world.add(std::make_shared<Sphere>(center, 0.2f, sphereMaterial));
+					}
+				}
+			}
+		}
+
+		auto material1 = std::make_shared<Dialectric>(1.5f);
+		m_world.add(std::make_shared<Sphere>(point3(0.f, 1.f, 0.f), 1.0f, material1));
+
+		auto material2 = std::make_shared<Lambertian>(color(0.4f, 0.2f, 0.1f));
+		m_world.add(std::make_shared<Sphere>(point3(-4.f, 1.f, 0.f), 1.0f, material2));
+
+		auto material3 = std::make_shared<Metal>(color(0.7f, 0.6f, 0.5f), 0.0f);
+		m_world.add(std::make_shared<Sphere>(point3(4.f, 1.f, 0.f), 1.0f, material3));
+	}
+	
+	void initCamera()
+	{
+		point3 lookFrom(13.f, 2.f, 3.f);
+		point3 lookAt(0.f, 0.f, 0.f);
+		vec3 vup(0.f, 1.f, 0.f);
+		float distToFocus = 10.f;
+		float aperture = 0.1f;
+
+		m_camera = std::make_shared<Camera>(lookFrom, lookAt, vup, 25.f, m_aspectRatio, aperture, distToFocus);
+	}
 
 private:
 	std::shared_ptr<Image> m_image;
@@ -232,8 +275,8 @@ private:
 	uint32_t m_imageWidth = 0;
 	uint32_t m_imageHeight = 0;
 
-	int m_samplesPerPixel = 16;
-	int m_maxDepth = 100;
+	int m_samplesPerPixel = 64;
+	int m_maxDepth = 200;
 
 	float m_writeTime = 0.f;
 	float m_readTime = 0.f;

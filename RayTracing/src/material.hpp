@@ -41,12 +41,12 @@ private:
 class Metal : public Material
 {
 public:
-	Metal(const color& a) : m_albedo(a) {}
+	Metal(const color& a, float fuzzy = 0.f) : m_albedo(a), m_fuzzy(fuzzy) {}
 
 	bool scatter(const Ray& rIn, const HitRecord& hitRecord, color& attenuation, Ray& scattered, bool hemisphereRandom) const override
 	{
 		auto reflected = glm::reflect(glm::normalize(rIn.direction()), hitRecord.m_normal);
-		scattered = Ray(hitRecord.m_point, reflected + (FUZZY * Walnut::Random::InUnitSphere()));
+		scattered = Ray(hitRecord.m_point, reflected + (m_fuzzy * Walnut::Random::InUnitSphere()));
 		attenuation = m_albedo;
 
 		return glm::dot(scattered.direction(), hitRecord.m_normal) > 0.f;
@@ -54,6 +54,7 @@ public:
 
 private:
 	color m_albedo;
+	float m_fuzzy;
 };
 
 class Dialectric : public Material
